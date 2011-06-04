@@ -5,6 +5,7 @@ import Tga
 import Debug.Trace
 
 tolerance = 0.001
+ambient = (Color 0.2 0 0)
 
 red :: Int -> B.ByteString
 red n = B.pack $ foldr (++) [] $ take n $ repeat $ getAsByteArray (Color 1 0 0)
@@ -16,20 +17,13 @@ dist = 100
 
 vzero = Vector 0 0 0
 
-vtimes :: Vector -> Float -> Vector
-vtimes (Vector x y z) s = 
-  Vector ( x * s ) (y * s) (z * s)
-
-vlength (Vector x y z) = 
-  sqrt( x * x + y * y + z * z)
-  
 vdist x y = 
-  vlength $ vminus x y
+  vlength $ x - y
 
 vnorm v@(Vector x y z) = 
   Vector (x / d) (y / d) (z / d)
     where d = vlength v
-
+          
 qnorm q@(Quaternion w (Vector x y z)) =
   Quaternion (w / d) (Vector (x / d) (y / d) (z / d))
     where d = qlength q
@@ -37,30 +31,18 @@ qnorm q@(Quaternion w (Vector x y z)) =
 qlength (Quaternion w (Vector x y z)) =
   sqrt(w * w + x * x + y * y + z * z)
 
-qconj (Quaternion w v) = 
-  Quaternion w (vtimes v (-1))
-
-qmultq (Quaternion w1 (Vector x1 y1 z1)) (Quaternion w2 (Vector x2 y2 z2)) =
-  (Quaternion (w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2)
-   (Vector
-    (w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2)
-    (w1 * y2 + y1 * w2 + z1 * x2 - x1 * z2)
-    (w1 * z2 + z1 * w2 + x1 * y2 - y1 * x2)))
+-- qmultq (Quaternion w1 (Vector x1 y1 z1)) (Quaternion w2 (Vector x2 y2 z2)) =
+--   (Quaternion (w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2)
+--    (Vector
+--     (w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2)
+--     (w1 * y2 + y1 * w2 + z1 * x2 - x1 * z2)
+--     (w1 * z2 + z1 * w2 + x1 * y2 - y1 * x2)))
 
 vdot (Vector x1 y1 z1) (Vector x2 y2 z2) = 
   x1 * x2 + y1 * y2 + z1 * z2
 
-vminus (Vector x1 y1 z1) (Vector x2 y2 z2) = 
-  Vector (x1 - x2)  (y1 - y2) (z1 - z2)
-  
-vplus (Vector x1 y1 z1) (Vector x2 y2 z2) = 
-  Vector (x1 + x2)  (y1 + y2) (z1 + z2)
-
 rotate v q =
-  (vec 
-    (qmultq 
-     (qmultq qn (Quaternion 0 v)) 
-     (qconj qn)))
+  vec $ qn * (Quaternion 0 v) * (-qn)
    where qn = qnorm q
         
 v = Vector 1 0 0
@@ -77,17 +59,17 @@ rays = [getRayForPixel camera (x,y) |
     fheight = fromIntegral height
 
 
-rayfromto o p = Ray o $ vnorm $ vminus p o
+rayfromto o p = Ray o $ vnorm $ p - o
 
 s = Sphere (Vector 0 0 100) 40
-light = Vector 0 70 40
+light = Vector 0 70 60
 
 normal (Sphere c r) p =
   rayfromto c p
 
 rayIntersection (Ray o l) (Sphere c r) =
   let 
-      tc = vminus c o
+      tc = c - o
       sroot = vdot l tc * vdot l tc - vdot tc tc + r * r
       s = sqrt $ sroot
       nonroot = vdot l tc
@@ -95,20 +77,25 @@ rayIntersection (Ray o l) (Sphere c r) =
       d2 = nonroot + s in
   case () of _
                | sroot <= 0        -> Nothing
-               | d1 > tolerance    -> Just $ vplus o $ vtimes l d1
-               | d2 > tolerance    -> Just $ vplus o $ vtimes l d2
+               | d1 > tolerance    -> Just $ o + vtimes l d1
+               | d2 > tolerance    -> Just $ o + vtimes l d2
                | otherwise         -> Nothing
 
-shadePointOnObject p =
-  let i = rayIntersection (rayfromto p light) s in
-  if isJust $ i then
-    Color 0.5 0 0
+ctimes (Color r g b) t =
+  Color ( r * t ) ( g * t ) ( b * t)
+
+shadePointOnObject p o =
+  let lightray = (rayfromto p light)
+      imaybe = rayIntersection lightray o 
+      i = fromMaybe vzero imaybe in
+  if isJust $ imaybe then
+    ambient
   else
-    Color 1 0 0
+    ambient + (ctimes (Color 1 0 0) $ vdot (dir (normal o i)) (dir lightray))
 
 raycolor r s =
   if isJust $ i then
-    getAsByteArray $ shadePointOnObject $ fromMaybe vzero i
+    getAsByteArray $ shadePointOnObject (fromMaybe vzero i) s
   else
     getAsByteArray (Color 0 0 0)
       where i = rayIntersection r s
@@ -120,14 +107,6 @@ main = do
   B.writeFile "test.tga" $ B.append (tgaHeader width height) 
     image
     
--- *Main Data.Maybe> raysphere r s
--- Just (Vector 0.0 0.0 46.054688)
--- *Main Data.Maybe> r
--- Ray (Vector 0.0 0.0 71.0) (Vector 0.0 0.0 60.0)
--- *Main Data.Maybe> s
--- Sphere (Vector 0.0 0.0 101.0) 30.0
-
-
 --DEBUG
 distanceFromCameraToColor vec = 
   let 
