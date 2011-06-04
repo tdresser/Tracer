@@ -31,13 +31,6 @@ qnorm q@(Quaternion w (Vector x y z)) =
 qlength (Quaternion w (Vector x y z)) =
   sqrt(w * w + x * x + y * y + z * z)
 
--- qmultq (Quaternion w1 (Vector x1 y1 z1)) (Quaternion w2 (Vector x2 y2 z2)) =
---   (Quaternion (w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2)
---    (Vector
---     (w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2)
---     (w1 * y2 + y1 * w2 + z1 * x2 - x1 * z2)
---     (w1 * z2 + z1 * w2 + x1 * y2 - y1 * x2)))
-
 vdot (Vector x1 y1 z1) (Vector x2 y2 z2) = 
   x1 * x2 + y1 * y2 + z1 * z2
 
@@ -61,8 +54,13 @@ rays = [getRayForPixel camera (x,y) |
 
 rayfromto o p = Ray o $ vnorm $ p - o
 
-s = Sphere (Vector 0 0 100) 40
-light = Vector 0 70 60
+shapes = [
+  Sphere (Vector 0 0 100) 40,
+  Sphere (Vector 0 0 100) 40 ]
+
+s = shapes !! 0
+
+light = Vector 0 0 50
 
 normal (Sphere c r) p =
   rayfromto c p
@@ -91,16 +89,20 @@ shadePointOnObject p o =
   if isJust $ imaybe then
     ambient
   else
-    ambient + (ctimes (Color 1 0 0) $ vdot (dir (normal o i)) (dir lightray))
+    let intensity = 1 - vdot (-(dir $ normal o i)) (dir lightray) in
+    ambient + ctimes (Color 0.7 0 0) intensity
 
-raycolor r s =
+rayColorFromShape r s = 
   if isJust $ i then
     getAsByteArray $ shadePointOnObject (fromMaybe vzero i) s
   else
     getAsByteArray (Color 0 0 0)
       where i = rayIntersection r s
+            
+raycolor r =
+  rayColorFromShape r s
 
-colors = map (\r -> raycolor r s) rays
+colors = map raycolor rays
 image = B.pack $ foldr (++) [] $ colors
 
 main = do 
@@ -113,11 +115,11 @@ distanceFromCameraToColor vec =
     c = vdist (p camera) vec in
     Color (c / 100) (c / 100) (c / 100)
     
-getSphereIntersection r = 
-  rayIntersection r s
+-- getSphereIntersection r = 
+--   rayIntersection r s
   
-getLightIntersection r = 
-  rayIntersection (rayfromto (fromMaybe vzero (rayIntersection r s)) light) s
+-- getLightIntersection r = 
+--   rayIntersection (rayfromto (fromMaybe vzero (rayIntersection r s)) light) s
   
-getIntersections r = 
-  [getSphereIntersection r, getLightIntersection r]
+-- getIntersections r = 
+--   [getSphereIntersection r, getLightIntersection r]
