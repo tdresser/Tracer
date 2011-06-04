@@ -66,10 +66,10 @@ rotate v q =
 v = Vector 1 0 0
 q = Quaternion 2 $ Vector 3 4 5
 
-getRay (Camera p q) (x,y) = 
+getRayForPixel (Camera p q) (x,y) = 
   rayfromto p $ rotate (Vector x y dist) q
 
-rays = [getRay camera (x,y) | 
+rays = [getRayForPixel camera (x,y) | 
         x<- [ (-fwidth)  / 2 .. (fwidth)  / 2 - 1], 
         y<- [ (-fheight) / 2 .. (fheight) / 2 - 1]]
   where
@@ -82,7 +82,10 @@ rayfromto o p = Ray o $ vnorm $ vminus p o
 s = Sphere (Vector 0 0 100) 40
 light = Vector 0 70 40
 
-raysphere (Ray o l) (Sphere c r) =
+normal (Sphere c r) p =
+  rayfromto c p
+
+rayIntersection (Ray o l) (Sphere c r) =
   let 
       tc = vminus c o
       sroot = vdot l tc * vdot l tc - vdot tc tc + r * r
@@ -96,14 +99,8 @@ raysphere (Ray o l) (Sphere c r) =
                | d2 > tolerance    -> Just $ vplus o $ vtimes l d2
                | otherwise         -> Nothing
 
-distanceFromCameraToColor vec = 
-  let 
-    c = vdist (p camera) vec in
-    Color (c / 100) (c / 100) (c / 100)
-
 shadePointOnObject p =
-  --distanceFromCameraToColor $ p
-  let i = raysphere (rayfromto p light) s in
+  let i = rayIntersection (rayfromto p light) s in
   if isJust $ i then
     Color 0.5 0 0
   else
@@ -114,16 +111,7 @@ raycolor r s =
     getAsByteArray $ shadePointOnObject $ fromMaybe vzero i
   else
     getAsByteArray (Color 0 0 0)
-      where i = raysphere r s
-
-getSphereIntersection r = 
-  raysphere r s
-  
-getLightIntersection r = 
-  raysphere (rayfromto (fromMaybe vzero (raysphere r s)) light) s
-
-getIntersections r = 
-  [getSphereIntersection r, getLightIntersection r]
+      where i = rayIntersection r s
 
 colors = map (\r -> raycolor r s) rays
 image = B.pack $ foldr (++) [] $ colors
@@ -138,3 +126,19 @@ main = do
 -- Ray (Vector 0.0 0.0 71.0) (Vector 0.0 0.0 60.0)
 -- *Main Data.Maybe> s
 -- Sphere (Vector 0.0 0.0 101.0) 30.0
+
+
+--DEBUG
+distanceFromCameraToColor vec = 
+  let 
+    c = vdist (p camera) vec in
+    Color (c / 100) (c / 100) (c / 100)
+    
+getSphereIntersection r = 
+  rayIntersection r s
+  
+getLightIntersection r = 
+  rayIntersection (rayfromto (fromMaybe vzero (rayIntersection r s)) light) s
+  
+getIntersections r = 
+  [getSphereIntersection r, getLightIntersection r]
