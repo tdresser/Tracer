@@ -2,14 +2,19 @@ import qualified Data.ByteString as B
 import Data.Maybe
 import Tracertypes
 import Tga
+import Debug.Trace
+
+tolerance = 0.001
 
 red :: Int -> B.ByteString
 red n = B.pack $ foldr (++) [] $ take n $ repeat $ getAsByteArray (Color 1 0 0)
 
-camera = Camera (Vector 0 0 0) $ qnorm $ Quaternion 1 $ Vector 0.2 0.1 3
+camera = Camera (Vector 0 0 0) $ qnorm $ Quaternion 1 $ Vector 0 0 0
 width = 100
 height = 100
 dist = 100
+
+vzero = Vector 0 0 0
 
 vtimes :: Vector -> Float -> Vector
 vtimes (Vector x y z) s = 
@@ -17,9 +22,12 @@ vtimes (Vector x y z) s =
 
 vlength (Vector x y z) = 
   sqrt( x * x + y * y + z * z)
+  
+vdist x y = 
+  vlength $ vminus x y
 
 vnorm v@(Vector x y z) = 
-  Vector (x / d) (y / 2) (z / d)
+  Vector (x / d) (y / d) (z / d)
     where d = vlength v
 
 qnorm q@(Quaternion w (Vector x y z)) =
@@ -48,7 +56,6 @@ vminus (Vector x1 y1 z1) (Vector x2 y2 z2) =
 vplus (Vector x1 y1 z1) (Vector x2 y2 z2) = 
   Vector (x1 + x2)  (y1 + y2) (z1 + z2)
 
-
 rotate v q =
   (vec 
     (qmultq 
@@ -60,7 +67,7 @@ v = Vector 1 0 0
 q = Quaternion 2 $ Vector 3 4 5
 
 getRay (Camera p q) (x,y) = 
-  Ray p $ vnorm $ rotate (Vector x y dist) q
+  rayfromto p $ rotate (Vector x y dist) q
 
 rays = [getRay camera (x,y) | 
         x<- [ (-fwidth)  / 2 .. (fwidth)  / 2 - 1], 
@@ -70,38 +77,53 @@ rays = [getRay camera (x,y) |
     fheight = fromIntegral height
 
 
-s = Sphere (Vector 0 0 101) 30
-light = Vector 100 100 100 
+rayfromto o p = Ray o $ vnorm $ vminus p o
+
+s = Sphere (Vector 0 0 100) 40
+light = Vector 0 70 40
 
 raysphere (Ray o l) (Sphere c r) =
-  if s < 0 then
-     Nothing
-  else
-    let root = sqrt s
-        nonroot = vdot l c
-        d1 = nonroot - root
-        d2 = nonroot + root in
-    if d1 > 0 then
-      Just $ vtimes l d1
-    else
-      if d2 > 0 then
-        Just $ vtimes l d2
-      else
-        Nothing
-          where s = vdot l c * vdot l c - vdot c c + r * r
+  let 
+      tc = vminus c o
+      sroot = vdot l tc * vdot l tc - vdot tc tc + r * r
+      s = sqrt $ sroot
+      nonroot = vdot l tc
+      d1 = nonroot - s
+      d2 = nonroot + s in
+  case () of _
+               | sroot <= 0        -> Nothing
+               | d1 > tolerance    -> Just $ vplus o $ vtimes l d1
+               | d2 > tolerance    -> Just $ vplus o $ vtimes l d2
+               | otherwise         -> Nothing
 
-shadePointOnObject v = 
-  if isJust $ raysphere (Ray light v) s then
-    Color 1 0 0
-  else
-    Color 0.5 0 0   
+distanceFromCameraToColor vec = 
+  let 
+    c = vdist (p camera) vec in
+    Color (c / 100) (c / 100) (c / 100)
 
-raycolor r s = 
+shadePointOnObject p =
+  --distanceFromCameraToColor $ p
+  let i = raysphere (rayfromto p light) s in
   if isJust $ i then
-    getAsByteArray $ shadePointOnObject $ fromMaybe (Vector 0 0 0 ) i
+    Color 0.5 0 0
+  else
+    Color 1 0 0
+
+raycolor r s =
+  if isJust $ i then
+    getAsByteArray $ shadePointOnObject $ fromMaybe vzero i
   else
     getAsByteArray (Color 0 0 0)
       where i = raysphere r s
+
+getSphereIntersection r = 
+  raysphere r s
+  
+getLightIntersection r = 
+  raysphere (rayfromto (fromMaybe vzero (raysphere r s)) light) s
+
+getIntersections r = 
+  [getSphereIntersection r, getLightIntersection r]
 
 colors = map (\r -> raycolor r s) rays
 image = B.pack $ foldr (++) [] $ colors
@@ -109,3 +131,10 @@ image = B.pack $ foldr (++) [] $ colors
 main = do 
   B.writeFile "test.tga" $ B.append (tgaHeader width height) 
     image
+    
+-- *Main Data.Maybe> raysphere r s
+-- Just (Vector 0.0 0.0 46.054688)
+-- *Main Data.Maybe> r
+-- Ray (Vector 0.0 0.0 71.0) (Vector 0.0 0.0 60.0)
+-- *Main Data.Maybe> s
+-- Sphere (Vector 0.0 0.0 101.0) 30.0
