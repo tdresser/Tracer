@@ -58,7 +58,8 @@ shapes = [
   Sphere (Vector 0 (-10) 100) 30,
   Sphere (Vector 0 30 100) 30 ]
 
-light = Vector 20 40 50
+lights = [Vector 20 40 50,
+          Vector 20 (-40) 50]
 
 normal (Sphere c r) p =
   rayfromto c p
@@ -98,20 +99,23 @@ rayIntersection r shapes =
 ctimes (Color r g b) t =
   Color ( r * t ) ( g * t ) ( b * t)
 
-shadePointOnObject p o =
+shadePointOnObjectForLight :: Vector -> Sphere -> Vector -> Color
+shadePointOnObjectForLight p o light =
   let lightray = (rayfromto p light)
       shadowCaster = rayIntersection lightray shapes in
   case shadowCaster of
     -- no ray from object to light
-    Just (Intersection i o) -> ambient
+    Just (Intersection i o) -> (Color 0 0 0)
     -- nothing between object and light
     Nothing ->
       let intensity = vdot (vnorm (dir $ normal o p)) (vnorm (dir lightray)) in
-      ambient + ctimes (Color 0.7 0 0) intensity
+      ctimes (Color 0.7 0 0) intensity
 
 rayColor r = 
   case intersection of 
-    Just (Intersection point shape) -> shadePointOnObject point shape
+    -- ray hits object
+    Just (Intersection point shape) -> ambient + (foldr (+) (Color 0 0 0) $ map (shadePointOnObjectForLight point shape) lights)
+    -- ray hits empty space
     Nothing -> (Color 0 0 0)
   where intersection = rayIntersection r shapes
             
