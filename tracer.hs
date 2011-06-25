@@ -62,7 +62,7 @@ lights = [Vector 20 40 (10)]
 --  ,Vector 20 (-40) (10)]
 
 normal (Sphere c r) p =
-  rayfromto c p
+  vnorm $ p - c
 
 rayIntersectionWithShape :: Ray -> Shape -> Maybe Intersection
 rayIntersectionWithShape (Ray o l) shape@(Shape (Sphere c r) _)=
@@ -107,20 +107,24 @@ shadePointOnObjectForLight p (Shape o (Shader c)) light =
     -- no ray from object to light
     Just (Intersection i o) -> (Color 0 0 0)
     -- nothing between object and light
-    Nothing ->
-      let intensity = vdot (vnorm (dir $ normal o p)) (vnorm (dir lightray)) in
+    Nothing -> 
+      let intensity = vdot (vnorm (normal o p)) (vnorm (dir lightray)) in
       ctimes c intensity
 
 ambientForShape (Shape _ (Shader (Color r g b))) = 
   (Color (r * ambient) (g * ambient) (b * ambient))
 
-reflectionColor (Ray o dir) intersectionPoint iterationNumber (Ray _ normal) = 
+reflectionColor (Ray o dir) intersectionPoint iterationNumber normal = 
   rayColorHelper (Ray intersectionPoint (dir - (vtimes normal ( 2 * (vdot dir normal))))) (iterationNumber + 1)
 
 rayColor r = 
   rayColorHelper r 0
 
 depth = 10
+
+phongPointOnObjectForLight point (Shape sphere _) light = 
+  let h = vnorm (light - point) in
+  ctimes (Color 1 1 1) $ (1 / vlength (point - light) ^^ 2) * 1000 * ((vdot (normal sphere point) h) ^^ 10)
 
 rayColorHelper r iterationNumber = 
   if (iterationNumber > depth) then
@@ -131,7 +135,8 @@ rayColorHelper r iterationNumber =
       Just (Intersection point shape@(Shape sphere _)) -> 
         ambientForShape shape + 
         foldr ((+).shadePointOnObjectForLight point shape) (Color 0 0 0) lights + 
-        ctimes (reflectionColor r point iterationNumber (normal sphere point )) 0.7 
+        ctimes (reflectionColor r point iterationNumber (normal sphere point )) 0.7 +
+        foldr ((+).phongPointOnObjectForLight point shape) (Color 0 0 0) lights
       -- ray hits empty space
       Nothing -> (Color 0 0 0)
     where intersection = rayIntersection r shapes
