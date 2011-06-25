@@ -55,17 +55,18 @@ rays = [getRayForPixel camera (x,y) |
 rayfromto o p = Ray o $ vnorm $ p - o
 
 shapes = [
-  Sphere (Vector 0 0 100) 40,
-  Sphere (Vector 0 0 100) 40 ]
+  Sphere (Vector 0 (-10) 100) 30,
+  Sphere (Vector 0 30 100) 30 ]
 
 s = shapes !! 0
 
-light = Vector 0 0 50
+light = Vector 20 40 50
 
 normal (Sphere c r) p =
   rayfromto c p
 
-rayIntersection (Ray o l) (Sphere c r) =
+rayIntersectionWithShape :: Ray -> Sphere -> Maybe Vector
+rayIntersectionWithShape (Ray o l) (Sphere c r) =
   let 
       tc = c - o
       sroot = vdot l tc * vdot l tc - vdot tc tc + r * r
@@ -78,31 +79,44 @@ rayIntersection (Ray o l) (Sphere c r) =
                | d1 > tolerance    -> Just $ o + vtimes l d1
                | d2 > tolerance    -> Just $ o + vtimes l d2
                | otherwise         -> Nothing
+  
+closestIntersection a b = 
+  case () of _
+               | isNothing a  -> b
+               | isNothing b  -> a
+               | otherwise    ->
+                 let av = fromMaybe vzero a
+                     bv = fromMaybe vzero b in
+                 if vlength (av - (p camera)) < vlength ( bv - (p camera)) then
+                   a
+                 else
+                   b
+
+-- finds the closest intersection point, and the shape interesected
+rayIntersection r shapes =
+  foldr closestIntersection Nothing $ map (rayIntersectionWithShape r) shapes
 
 ctimes (Color r g b) t =
   Color ( r * t ) ( g * t ) ( b * t)
 
 shadePointOnObject p o =
   let lightray = (rayfromto p light)
-      imaybe = rayIntersection lightray o 
+      imaybe = rayIntersection lightray shapes
       i = fromMaybe vzero imaybe in
   if isJust $ imaybe then
-    ambient
+    (Color 0 0 0)
   else
-    let intensity = 1 - vdot (-(dir $ normal o i)) (dir lightray) in
-    ambient + ctimes (Color 0.7 0 0) intensity
+    let intensity = vdot (vnorm (dir $ normal o i)) (vnorm (dir lightray)) in
+      ctimes (Color 0.7 0 0) intensity
 
-rayColorFromShape r s = 
+rayColor r = 
   if isJust $ i then
-    getAsByteArray $ shadePointOnObject (fromMaybe vzero i) s
+    ambient + shadePointOnObject (fromMaybe vzero i) s
   else
-    getAsByteArray (Color 0 0 0)
-      where i = rayIntersection r s
+    (Color 0 0 0)
+      where i = rayIntersection r shapes
             
-raycolor r =
-  rayColorFromShape r s
-
-colors = map raycolor rays
+colors = map (getAsByteArray.rayColor) rays
 image = B.pack $ foldr (++) [] $ colors
 
 main = do 

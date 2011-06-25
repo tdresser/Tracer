@@ -8,13 +8,14 @@ module Tracertypes (
   vlength,
   vtimes) where
 
-data Color  = Color   Float Float Float  deriving (Show, Eq)
+data Color  = Color   Float Float Float               deriving (Show, Eq)
 data Vector = Vector  Float Float Float               deriving (Show, Eq)
 data Quaternion = Quaternion {w::Float, vec::Vector}  deriving (Show, Eq)
 data Ray    = Ray     {o::Vector, dir:: Vector}       deriving (Show)
 data Camera = Camera  {p::Vector, rot::Quaternion}    deriving (Show)
 data Sphere = Sphere Vector Float                     deriving (Show)
-  
+data Intersection = Intersection Vector Sphere        deriving (Show)
+
 instance Num Color where 
   (Color r1 b1 g1) + (Color r2 b2 g2) = Color (r1 + r2) (b1 + b2) (g1 + g2)  
   (*)         = undefined
