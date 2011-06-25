@@ -5,7 +5,7 @@ import Tga
 import Debug.Trace
 
 tolerance = 0.001
-ambient = (Color 0.2 0 0)
+ambient = 0.1
 
 red :: Int -> B.ByteString
 red n = B.pack $ foldr (++) [] $ take n $ repeat $ getAsByteArray (Color 1 0 0)
@@ -55,8 +55,8 @@ rays = [getRayForPixel camera (x,y) |
 rayfromto o p = Ray o $ vnorm $ p - o
 
 shapes = [
-  Sphere (Vector 0 (-10) 100) 30,
-  Sphere (Vector 0 30 100) 30 ]
+  Shape (Sphere (Vector 0 (-10) 100) 30) (Shader (Color 1 0 0)),
+  (Shape (Sphere (Vector 0 30 100) 30) (Shader (Color 0 1 0))) ]
 
 lights = [Vector 20 40 50,
           Vector 20 (-40) 50]
@@ -64,8 +64,8 @@ lights = [Vector 20 40 50,
 normal (Sphere c r) p =
   rayfromto c p
 
-rayIntersectionWithShape :: Ray -> Sphere -> Maybe Intersection
-rayIntersectionWithShape (Ray o l) sphere@(Sphere c r) =
+rayIntersectionWithShape :: Ray -> Shape -> Maybe Intersection
+rayIntersectionWithShape (Ray o l) shape@(Shape (Sphere c r) _)=
   let 
       tc = c - o
       sroot = vdot l tc * vdot l tc - vdot tc tc + r * r
@@ -76,9 +76,9 @@ rayIntersectionWithShape (Ray o l) sphere@(Sphere c r) =
   case () of _
                | sroot <= 0        -> Nothing
                | d1 > tolerance    -> Just $ 
-                                      Intersection (o + vtimes l d1) sphere
+                                      Intersection (o + vtimes l d1) shape
                | d2 > tolerance    -> Just $ 
-                                      Intersection (o + vtimes l d2) sphere
+                                      Intersection (o + vtimes l d2) shape
                | otherwise         -> Nothing
   
 -- compares two Maybe intersections, and returns the closer one
@@ -99,8 +99,8 @@ rayIntersection r shapes =
 ctimes (Color r g b) t =
   Color ( r * t ) ( g * t ) ( b * t)
 
-shadePointOnObjectForLight :: Vector -> Sphere -> Vector -> Color
-shadePointOnObjectForLight p o light =
+shadePointOnObjectForLight :: Vector -> Shape -> Vector -> Color
+shadePointOnObjectForLight p (Shape o (Shader c)) light =
   let lightray = (rayfromto p light)
       shadowCaster = rayIntersection lightray shapes in
   case shadowCaster of
@@ -109,12 +109,15 @@ shadePointOnObjectForLight p o light =
     -- nothing between object and light
     Nothing ->
       let intensity = vdot (vnorm (dir $ normal o p)) (vnorm (dir lightray)) in
-      ctimes (Color 0.7 0 0) intensity
+      ctimes c intensity
+
+ambientForShape (Shape _ (Shader (Color r g b))) = 
+  (Color (r * ambient) (g * ambient) (b * ambient))
 
 rayColor r = 
   case intersection of 
     -- ray hits object
-    Just (Intersection point shape) -> ambient + foldr ((+).shadePointOnObjectForLight point shape) (Color 0 0 0) lights
+    Just (Intersection point shape) -> ambientForShape shape + foldr ((+).shadePointOnObjectForLight point shape) (Color 0 0 0) lights
     -- ray hits empty space
     Nothing -> (Color 0 0 0)
   where intersection = rayIntersection r shapes

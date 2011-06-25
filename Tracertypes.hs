@@ -6,6 +6,8 @@ module Tracertypes (
   Quaternion(..),
   Sphere(Sphere),
   Intersection(Intersection),
+  Shape(Shape),
+  Shader(Shader),
   vlength,
   vtimes) where
 
@@ -15,7 +17,9 @@ data Quaternion = Quaternion {w::Float, vec::Vector}  deriving (Show, Eq)
 data Ray    = Ray     {o::Vector, dir:: Vector}       deriving (Show)
 data Camera = Camera  {p::Vector, rot::Quaternion}    deriving (Show)
 data Sphere = Sphere Vector Float                     deriving (Show)
-data Intersection = Intersection Vector Sphere        deriving (Show)
+data Intersection = Intersection Vector Shape         deriving (Show)
+data Shape = Shape Sphere Shader                      deriving (Show)
+data Shader = Shader Color                            deriving (Show)
 
 instance Num Color where 
   (Color r1 b1 g1) + (Color r2 b2 g2) = Color (r1 + r2) (b1 + b2) (g1 + g2)  
