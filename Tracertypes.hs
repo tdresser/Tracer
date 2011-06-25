@@ -5,6 +5,7 @@ module Tracertypes (
   Camera(..), 
   Quaternion(..),
   Sphere(Sphere),
+  Intersection(Intersection),
   vlength,
   vtimes) where
 

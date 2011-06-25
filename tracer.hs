@@ -58,15 +58,15 @@ shapes = [
   Sphere (Vector 0 (-10) 100) 30,
   Sphere (Vector 0 30 100) 30 ]
 
-s = shapes !! 0
+--s = shapes !! 0
 
 light = Vector 20 40 50
 
 normal (Sphere c r) p =
   rayfromto c p
 
-rayIntersectionWithShape :: Ray -> Sphere -> Maybe Vector
-rayIntersectionWithShape (Ray o l) (Sphere c r) =
+rayIntersectionWithShape :: Ray -> Sphere -> Maybe Intersection
+rayIntersectionWithShape (Ray o l) sphere@(Sphere c r) =
   let 
       tc = c - o
       sroot = vdot l tc * vdot l tc - vdot tc tc + r * r
@@ -76,23 +76,23 @@ rayIntersectionWithShape (Ray o l) (Sphere c r) =
       d2 = nonroot + s in
   case () of _
                | sroot <= 0        -> Nothing
-               | d1 > tolerance    -> Just $ o + vtimes l d1
-               | d2 > tolerance    -> Just $ o + vtimes l d2
+               | d1 > tolerance    -> Just $ 
+                                      Intersection (o + vtimes l d1) sphere
+               | d2 > tolerance    -> Just $ 
+                                      Intersection (o + vtimes l d2) sphere
                | otherwise         -> Nothing
   
-closestIntersection a b = 
-  case () of _
-               | isNothing a  -> b
-               | isNothing b  -> a
-               | otherwise    ->
-                 let av = fromMaybe vzero a
-                     bv = fromMaybe vzero b in
-                 if vlength (av - (p camera)) < vlength ( bv - (p camera)) then
+closestIntersection Nothing a = a
+closestIntersection a Nothing = a
+closestIntersection a@(Just (Intersection avec _)) 
+  b@(Just ( Intersection bvec _)) = 
+                 if   vlength ( avec - (p camera)) 
+                    < vlength ( bvec - (p camera)) then
                    a
                  else
                    b
 
--- finds the closest intersection point, and the shape interesected
+-- finds the closest intersection point, and the shape intersected
 rayIntersection r shapes =
   foldr closestIntersection Nothing $ map (rayIntersectionWithShape r) shapes
 
@@ -101,20 +101,20 @@ ctimes (Color r g b) t =
 
 shadePointOnObject p o =
   let lightray = (rayfromto p light)
-      imaybe = rayIntersection lightray shapes
-      i = fromMaybe vzero imaybe in
-  if isJust $ imaybe then
-    (Color 0 0 0)
-  else
-    let intensity = vdot (vnorm (dir $ normal o i)) (vnorm (dir lightray)) in
-      ctimes (Color 0.7 0 0) intensity
+      imaybe = rayIntersection lightray shapes in
+  case imaybe of
+    -- no ray from object to light
+    Just (Intersection i o) -> ambient
+    -- nothing between object and light
+    Nothing ->
+      let intensity = vdot (vnorm (dir $ normal o p)) (vnorm (dir lightray)) in
+      ambient + ctimes (Color 0.7 0 0) intensity
 
 rayColor r = 
-  if isJust $ i then
-    ambient + shadePointOnObject (fromMaybe vzero i) s
-  else
-    (Color 0 0 0)
-      where i = rayIntersection r shapes
+  case intersection of 
+    Just (Intersection point shape) -> shadePointOnObject point shape
+    Nothing -> (Color 0 0 0)
+  where intersection = rayIntersection r shapes
             
 colors = map (getAsByteArray.rayColor) rays
 image = B.pack $ foldr (++) [] $ colors
@@ -128,12 +128,3 @@ distanceFromCameraToColor vec =
   let 
     c = vdist (p camera) vec in
     Color (c / 100) (c / 100) (c / 100)
-    
--- getSphereIntersection r = 
---   rayIntersection r s
-  
--- getLightIntersection r = 
---   rayIntersection (rayfromto (fromMaybe vzero (rayIntersection r s)) light) s
-  
--- getIntersections r = 
---   [getSphereIntersection r, getLightIntersection r]
