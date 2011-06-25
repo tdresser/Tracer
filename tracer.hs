@@ -119,7 +119,16 @@ rayColor r =
     Nothing -> (Color 0 0 0)
   where intersection = rayIntersection r shapes
             
-colors = map (getAsByteArray.rayColor) rays
+e = 2.7182818
+exposure = -1
+
+exposureCorrect (Color r g b) = 
+  (Color 
+   (1 - e ** (r * exposure))
+   (1 - e ** (g * exposure))
+   (1 - e ** (b * exposure)))
+
+colors = map (getAsByteArray.exposureCorrect.rayColor) rays
 image = B.pack $ foldr (++) [] $ colors
 
 main = do 
