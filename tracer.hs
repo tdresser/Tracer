@@ -11,8 +11,8 @@ red :: Int -> B.ByteString
 red n = B.pack $ foldr (++) [] $ take n $ repeat $ getAsByteArray (Color 1 0 0)
 
 camera = Camera (Vector 0 0 0) $ qnorm $ Quaternion 1 $ Vector 0 0 0
-width = 400
-height = 400
+width = 1024
+height = 768
 dist = 100
 
 vzero = Vector 0 0 0
@@ -45,8 +45,8 @@ getRayForPixel (Camera p q) (x,y) =
   rayfromto p $ rotate (Vector x y dist) q
 
 rays = [getRayForPixel camera (x,y) | 
-        x<- [ (-fwidth)  / 2 .. (fwidth)  / 2 - 1], 
-        y<- [ (-fheight) / 2 .. (fheight) / 2 - 1]]
+        y<- [ (-fheight)  / 2 .. (fheight)  / 2 - 1], 
+        x<- [ (-fwidth) / 2 .. (fwidth) / 2 - 1]]
   where
     fwidth = fromIntegral width
     fheight = fromIntegral height
@@ -56,7 +56,8 @@ rayfromto o p = Ray o $ vnorm $ p - o
 
 shapes = [
   Shape (Sphere (Vector 30 (-60) 90) 60) (Shader (Color 0.5 0 0)),
-  (Shape (Sphere (Vector 0 60 100) 60) (Shader (Color 0 0.5 0))) ]
+  Shape (Sphere (Vector 0 60 100) 60) (Shader (Color 0 0.5 0)),
+  Shape (Sphere (Vector 100 60 150) 60) (Shader (Color 0 0.2 0.5)) ]
 
 lights = [Vector 20 40 (10)]
 --  ,Vector 20 (-40) (10)]
