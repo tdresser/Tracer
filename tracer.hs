@@ -94,7 +94,7 @@ closestIntersection a@(Just (Intersection avec _)) b@(Just ( Intersection bvec _
 
 -- finds the closest intersection point, and the shape intersected
 rayIntersection r shapes =
-  foldr closestIntersection Nothing $ map (rayIntersectionWithShape r) shapes
+  foldr (closestIntersection . rayIntersectionWithShape r) Nothing shapes
 
 ctimes (Color r g b) t =
   Color ( r * t ) ( g * t ) ( b * t)
@@ -114,7 +114,7 @@ shadePointOnObjectForLight p o light =
 rayColor r = 
   case intersection of 
     -- ray hits object
-    Just (Intersection point shape) -> ambient + (foldr (+) (Color 0 0 0) $ map (shadePointOnObjectForLight point shape) lights)
+    Just (Intersection point shape) -> ambient + foldr ((+).shadePointOnObjectForLight point shape) (Color 0 0 0) lights
     -- ray hits empty space
     Nothing -> (Color 0 0 0)
   where intersection = rayIntersection r shapes
