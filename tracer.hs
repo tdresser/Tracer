@@ -58,8 +58,6 @@ shapes = [
   Sphere (Vector 0 (-10) 100) 30,
   Sphere (Vector 0 30 100) 30 ]
 
---s = shapes !! 0
-
 light = Vector 20 40 50
 
 normal (Sphere c r) p =
@@ -82,10 +80,11 @@ rayIntersectionWithShape (Ray o l) sphere@(Sphere c r) =
                                       Intersection (o + vtimes l d2) sphere
                | otherwise         -> Nothing
   
+-- compares two Maybe intersections, and returns the closer one
+closestIntersection :: Maybe Intersection -> Maybe Intersection -> Maybe Intersection
 closestIntersection Nothing a = a
 closestIntersection a Nothing = a
-closestIntersection a@(Just (Intersection avec _)) 
-  b@(Just ( Intersection bvec _)) = 
+closestIntersection a@(Just (Intersection avec _)) b@(Just ( Intersection bvec _)) = 
                  if   vlength ( avec - (p camera)) 
                     < vlength ( bvec - (p camera)) then
                    a
@@ -101,8 +100,8 @@ ctimes (Color r g b) t =
 
 shadePointOnObject p o =
   let lightray = (rayfromto p light)
-      imaybe = rayIntersection lightray shapes in
-  case imaybe of
+      shadowCaster = rayIntersection lightray shapes in
+  case shadowCaster of
     -- no ray from object to light
     Just (Intersection i o) -> ambient
     -- nothing between object and light
