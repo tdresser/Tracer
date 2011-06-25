@@ -11,8 +11,8 @@ red :: Int -> B.ByteString
 red n = B.pack $ foldr (++) [] $ take n $ repeat $ getAsByteArray (Color 1 0 0)
 
 camera = Camera (Vector 0 0 0) $ qnorm $ Quaternion 1 $ Vector 0 0 0
-width = 100
-height = 100
+width = 400
+height = 400
 dist = 100
 
 vzero = Vector 0 0 0
@@ -55,11 +55,11 @@ rays = [getRayForPixel camera (x,y) |
 rayfromto o p = Ray o $ vnorm $ p - o
 
 shapes = [
-  Shape (Sphere (Vector 0 (-10) 100) 30) (Shader (Color 1 0 0)),
-  (Shape (Sphere (Vector 0 30 100) 30) (Shader (Color 0 1 0))) ]
+  Shape (Sphere (Vector 30 (-60) 90) 60) (Shader (Color 0.5 0 0)),
+  (Shape (Sphere (Vector 0 60 100) 60) (Shader (Color 0 0.5 0))) ]
 
-lights = [Vector 20 40 50,
-          Vector 20 (-40) 50]
+lights = [Vector 20 40 (10)]
+--  ,Vector 20 (-40) (10)]
 
 normal (Sphere c r) p =
   rayfromto c p
@@ -114,13 +114,27 @@ shadePointOnObjectForLight p (Shape o (Shader c)) light =
 ambientForShape (Shape _ (Shader (Color r g b))) = 
   (Color (r * ambient) (g * ambient) (b * ambient))
 
+reflectionColor (Ray o dir) intersectionPoint iterationNumber (Ray _ normal) = 
+  rayColorHelper (Ray intersectionPoint (dir - (vtimes normal ( 2 * (vdot dir normal))))) (iterationNumber + 1)
+
 rayColor r = 
-  case intersection of 
-    -- ray hits object
-    Just (Intersection point shape) -> ambientForShape shape + foldr ((+).shadePointOnObjectForLight point shape) (Color 0 0 0) lights
-    -- ray hits empty space
-    Nothing -> (Color 0 0 0)
-  where intersection = rayIntersection r shapes
+  rayColorHelper r 0
+
+depth = 10
+
+rayColorHelper r iterationNumber = 
+  if (iterationNumber > depth) then
+    (Color 0 0 0)
+  else
+    case intersection of 
+      -- ray hits object
+      Just (Intersection point shape@(Shape sphere _)) -> 
+        ambientForShape shape + 
+        foldr ((+).shadePointOnObjectForLight point shape) (Color 0 0 0) lights + 
+        ctimes (reflectionColor r point iterationNumber (normal sphere point )) 0.7 
+      -- ray hits empty space
+      Nothing -> (Color 0 0 0)
+    where intersection = rayIntersection r shapes
             
 e = 2.7182818
 exposure = -1
