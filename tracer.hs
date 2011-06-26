@@ -3,12 +3,11 @@ import Data.Maybe
 import Tracertypes
 import Tga
 import Debug.Trace
+import Control.Parallel
+import Control.Parallel.Strategies
 
 tolerance = 0.001
 ambient = 0.1
-
-red :: Int -> B.ByteString
-red n = B.pack $ foldr (++) [] $ take n $ repeat $ getAsByteArray (Color 1 0 0)
 
 camera = Camera (Vector 0 0 0) $ qnorm $ Quaternion 1 $ Vector 0 0 0
 width = 1024
@@ -38,9 +37,6 @@ rotate v q =
   vec $ qn * (Quaternion 0 v) * (-qn)
    where qn = qnorm q
         
-v = Vector 1 0 0
-q = Quaternion 2 $ Vector 3 4 5
-
 getRayForPixel (Camera p q) (x,y) = 
   rayfromto p $ rotate (Vector x y dist) q
 
@@ -60,7 +56,7 @@ shapes = [
   Shape (Sphere (Vector 100 60 150) 60) (Shader (Color 0 0.2 0.5)) ]
 
 lights = [Vector 20 40 (10)]
---  ,Vector 20 (-40) (10)]
+     --     Vector 20 60 (20)]
 
 normal (Sphere c r) p =
   vnorm $ p - c
@@ -150,6 +146,8 @@ exposureCorrect (Color r g b) =
    (1 - e ** (r * exposure))
    (1 - e ** (g * exposure))
    (1 - e ** (b * exposure)))
+
+-- TODO try splitting it in half
 
 colors = map (getAsByteArray.exposureCorrect.rayColor) rays
 image = B.pack $ foldr (++) [] $ colors

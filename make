@@ -1,2 +1,2 @@
 #!/bin/bash
-ghc --make -O tracer.hs
+ghc --make -threaded -O2 tracer.hs
