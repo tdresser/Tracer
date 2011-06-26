@@ -5,15 +5,16 @@ import Tga
 import Debug.Trace
 import Control.Parallel
 import Control.Parallel.Strategies
+--import System.Random.Mersenne
+import Random
 
 tolerance = 0.001
 ambient = 0.1
 
 camera = Camera (Vector 0 0 0) $ qnorm $ Quaternion 1 $ Vector 0 0 0
-width = 400
-height = 300
+width = 1024
+height = 768
 dist = 100
-
 vzero = Vector 0 0 0
 
 vdist x y = 
@@ -37,15 +38,18 @@ rotate v q =
   vec $ qn * (Quaternion 0 v) * (-qn)
    where qn = qnorm q
         
-superSample = 2
+superSample = 1
 
 getRayForPoint (Camera p q) (x,y) = 
   rayfromto p $ rotate (Vector x y dist) q
   
 getRaysForPixel camera (x,y) = 
-  [getRayForPoint camera (subx/superSample, suby/superSample) |
-   subx<-[x*superSample..(x+1)*superSample],
-   suby<-[y*superSample..(y+1)*superSample]]
+  if superSample == 1 then
+    [getRayForPoint camera (x,y)]
+  else
+    [getRayForPoint camera (subx/superSample, suby/superSample) |
+     subx<-[x*superSample..(x+1)*superSample],
+     suby<-[y*superSample..(y+1)*superSample]]
 
 rays = [getRaysForPixel camera (x,y) | 
         y<- [ (-fheight)  / 2 .. (fheight)  / 2 - 1], 
@@ -60,6 +64,7 @@ rayfromto o p = Ray o $ vnorm $ p - o
 shapes = [
   Shape (Sphere (Vector 30 (-60) 90) 60) (Shader (Color 0.5 0 0)),
   Shape (Sphere (Vector 0 60 100) 60) (Shader (Color 0 0.5 0)),
+  Shape (Sphere (Vector 0 60 1600) 1200) (Shader (Color 0.2 0.2 0.2)),
   Shape (Sphere (Vector 100 60 150) 60) (Shader (Color 0 0.2 0.5)) ]
 
 lights = [Vector 20 40 (10)]
@@ -118,8 +123,11 @@ shadePointOnObjectForLight p (Shape o (Shader c)) light =
 ambientForShape (Shape _ (Shader (Color r g b))) = 
   (Color (r * ambient) (g * ambient) (b * ambient))
 
-reflectionColor (Ray o dir) intersectionPoint iterationNumber normal = 
-  rayColorHelper (Ray intersectionPoint (dir - (vtimes normal ( 2 * (vdot dir normal))))) (iterationNumber + 1)
+reflectRay (Ray o dir) intersectionPoint normal = 
+  (Ray intersectionPoint (dir - (vtimes normal ( 2 * (vdot dir normal)))))
+
+reflectionColor ray intersectionPoint iterationNumber normal = 
+  rayColorHelper (reflectRay ray intersectionPoint normal) (iterationNumber + 1)
 
 raysColor rays = 
   ctimes (foldr ((+).rayColor) (Color 0 0 0) rays) ( 1 / (fromIntegral $ length rays))
@@ -127,11 +135,45 @@ raysColor rays =
 rayColor r = 
   rayColorHelper r 0
 
-depth = 10
+depth = 2
 
 phongPointOnObjectForLight point (Shape sphere _) light = 
   let h = vnorm (light - point) in
   ctimes (Color 1 1 1) $ (1 / vlength (point - light) ^^ 2) * 1000 * ((vdot (normal sphere point) h) ^^ 10)
+  
+generateRayLike (Ray o dir) = do
+  (Ray o dir)
+    -- generator <- newStdGen
+    -- let
+    --   xyz = take 3 $ randoms generator :: [Float]
+    --   x = xyz !! 0
+    --   y = xyz !! 1
+    --   z = xyz !! 2 
+    --   randDir = (Vector x y z) in
+    --   if (vdot randDir dir) > 0 then
+    --     return (Ray o randDir)
+    --   else
+    --     return (Ray o (vtimes randDir (-1)))
+  
+generateRaysLike ray = 
+  [generateRayLike ray]
+
+noDarkerThanBlack (Color r g b) = 
+  (Color 
+   (max 0 r)
+   (max 0 g)
+   (max 0 b))
+
+ambientValueForRay ray = 
+  let intersection = rayIntersection ray shapes in
+  case intersection of
+    Nothing -> (Color 0 0 0)
+    Just (Intersection i o) -> (Color (-0.1) (-0.1) (-0.1))
+  
+ambientOcclusion point (Shape sphere _) = 
+  let rays =  generateRaysLike ( rayfromto point $ normal sphere point ) in
+  ctimes (foldr ((+).ambientValueForRay) (Color 0 0 0) rays)  (1 / (fromIntegral $ length rays))
+  
 
 rayColorHelper r iterationNumber = 
   if (iterationNumber > depth) then
@@ -142,8 +184,9 @@ rayColorHelper r iterationNumber =
       Just (Intersection point shape@(Shape sphere _)) -> 
         ambientForShape shape + 
         foldr ((+).shadePointOnObjectForLight point shape) (Color 0 0 0) lights + 
-        ctimes (reflectionColor r point iterationNumber (normal sphere point )) 0.7 +
-        foldr ((+).phongPointOnObjectForLight point shape) (Color 0 0 0) lights
+        ctimes (reflectionColor r point iterationNumber (normal sphere point )) 0.4 +
+        foldr ((+).phongPointOnObjectForLight point shape) (Color 0 0 0) lights + 
+        ambientOcclusion point shape
       -- ray hits empty space
       Nothing -> (Color 0 0 0)
     where intersection = rayIntersection r shapes
