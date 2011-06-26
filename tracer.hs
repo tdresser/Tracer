@@ -10,8 +10,8 @@ tolerance = 0.001
 ambient = 0.1
 
 camera = Camera (Vector 0 0 0) $ qnorm $ Quaternion 1 $ Vector 0 0 0
-width = 1024
-height = 768
+width = 400
+height = 300
 dist = 100
 
 vzero = Vector 0 0 0
@@ -37,10 +37,17 @@ rotate v q =
   vec $ qn * (Quaternion 0 v) * (-qn)
    where qn = qnorm q
         
-getRayForPixel (Camera p q) (x,y) = 
-  rayfromto p $ rotate (Vector x y dist) q
+superSample = 2
 
-rays = [getRayForPixel camera (x,y) | 
+getRayForPoint (Camera p q) (x,y) = 
+  rayfromto p $ rotate (Vector x y dist) q
+  
+getRaysForPixel camera (x,y) = 
+  [getRayForPoint camera (subx/superSample, suby/superSample) |
+   subx<-[x*superSample..(x+1)*superSample],
+   suby<-[y*superSample..(y+1)*superSample]]
+
+rays = [getRaysForPixel camera (x,y) | 
         y<- [ (-fheight)  / 2 .. (fheight)  / 2 - 1], 
         x<- [ (-fwidth) / 2 .. (fwidth) / 2 - 1]]
   where
@@ -114,6 +121,9 @@ ambientForShape (Shape _ (Shader (Color r g b))) =
 reflectionColor (Ray o dir) intersectionPoint iterationNumber normal = 
   rayColorHelper (Ray intersectionPoint (dir - (vtimes normal ( 2 * (vdot dir normal))))) (iterationNumber + 1)
 
+raysColor rays = 
+  ctimes (foldr ((+).rayColor) (Color 0 0 0) rays) ( 1 / (fromIntegral $ length rays))
+  
 rayColor r = 
   rayColorHelper r 0
 
@@ -149,7 +159,8 @@ exposureCorrect (Color r g b) =
 
 -- TODO try splitting it in half
 
-colors = map (getAsByteArray.exposureCorrect.rayColor) rays
+colors = map (getAsByteArray.exposureCorrect.raysColor) rays
+
 image = B.pack $ foldr (++) [] $ colors
 
 main = do 
