@@ -1,4 +1,4 @@
-import qualified Data.ByteString as B
+import qualified Data.ByteString.Lazy as B
 import Data.Maybe
 import Tracertypes
 import Tga
@@ -38,7 +38,7 @@ rotate v q =
   vec $ qn * (Quaternion 0 v) * (-qn)
    where qn = qnorm q
         
-superSample = 1
+superSample = 2
 
 getRayForPoint (Camera p q) (x,y) = 
   rayfromto p $ rotate (Vector x y dist) q
@@ -185,8 +185,8 @@ rayColorHelper r iterationNumber =
         ambientForShape shape + 
         foldr ((+).shadePointOnObjectForLight point shape) (Color 0 0 0) lights + 
         ctimes (reflectionColor r point iterationNumber (normal sphere point )) 0.4 +
-        foldr ((+).phongPointOnObjectForLight point shape) (Color 0 0 0) lights + 
-        ambientOcclusion point shape
+        foldr ((+).phongPointOnObjectForLight point shape) (Color 0 0 0) lights 
+        --ambientOcclusion point shape
       -- ray hits empty space
       Nothing -> (Color 0 0 0)
     where intersection = rayIntersection r shapes
@@ -200,9 +200,7 @@ exposureCorrect (Color r g b) =
    (1 - e ** (g * exposure))
    (1 - e ** (b * exposure)))
 
--- TODO try splitting it in half
-
-colors = map (getAsByteArray.exposureCorrect.raysColor) rays
+colors = (map (getAsByteArray.exposureCorrect.raysColor) rays) `using` parListChunk 500 rdeepseq
 
 image = B.pack $ foldr (++) [] $ colors
 

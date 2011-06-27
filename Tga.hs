@@ -2,7 +2,7 @@ module Tga (tgaHeader, getAsByteArray) where
 
 import Data.Bits
 import Data.Word
-import qualified Data.ByteString as B
+import qualified Data.ByteString.Lazy as B
 import Tracertypes
 
 toByte :: Float -> Word8
