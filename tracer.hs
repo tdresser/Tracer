@@ -5,8 +5,6 @@ import Tga
 import Debug.Trace
 import Control.Parallel
 import Control.Parallel.Strategies
---import System.Random.Mersenne
-import Random
 
 tolerance = 0.001
 ambient = 0.1
@@ -52,8 +50,8 @@ getRaysForPixel camera (x,y) =
      suby<-[y*superSample..(y+1)*superSample]]
 
 rays = [getRaysForPixel camera (x,y) | 
-        y<- [ (-fheight)  / 2 .. (fheight)  / 2 - 1], 
-        x<- [ (-fwidth) / 2 .. (fwidth) / 2 - 1]]
+        y  <- [ (-fheight)  / 2 .. (fheight)  / 2 - 1], 
+        x  <- [ (-fwidth) / 2 .. (fwidth) / 2 - 1]]
   where
     fwidth = fromIntegral width
     fheight = fromIntegral height
@@ -141,23 +139,6 @@ phongPointOnObjectForLight point (Shape sphere _) light =
   let h = vnorm (light - point) in
   ctimes (Color 1 1 1) $ (1 / vlength (point - light) ^^ 2) * 1000 * ((vdot (normal sphere point) h) ^^ 10)
   
-generateRayLike (Ray o dir) = do
-  (Ray o dir)
-    -- generator <- newStdGen
-    -- let
-    --   xyz = take 3 $ randoms generator :: [Float]
-    --   x = xyz !! 0
-    --   y = xyz !! 1
-    --   z = xyz !! 2 
-    --   randDir = (Vector x y z) in
-    --   if (vdot randDir dir) > 0 then
-    --     return (Ray o randDir)
-    --   else
-    --     return (Ray o (vtimes randDir (-1)))
-  
-generateRaysLike ray = 
-  [generateRayLike ray]
-
 noDarkerThanBlack (Color r g b) = 
   (Color 
    (max 0 r)
@@ -170,11 +151,6 @@ ambientValueForRay ray =
     Nothing -> (Color 0 0 0)
     Just (Intersection i o) -> (Color (-0.1) (-0.1) (-0.1))
   
-ambientOcclusion point (Shape sphere _) = 
-  let rays =  generateRaysLike ( rayfromto point $ normal sphere point ) in
-  ctimes (foldr ((+).ambientValueForRay) (Color 0 0 0) rays)  (1 / (fromIntegral $ length rays))
-  
-
 rayColorHelper r iterationNumber = 
   if (iterationNumber > depth) then
     (Color 0 0 0)
