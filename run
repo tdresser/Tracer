@@ -1,4 +1,0 @@
-#!/bin/bash
-./make && \
-./tracer +RTS -N2 && \
-eog test.tga
