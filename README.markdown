@@ -7,12 +7,12 @@ It is fully parallelized.
 # Building and Running
 
 You need ghc and cabal, and you'll need to grab the Control.Parallel package.
-	cabal install parallel
+    cabal install parallel
 
 Then you should be able to build with 
-	ghc --make -threaded -O2 tracer.hs
+    ghc --make -threaded -O2 tracer.hs
 and run with
-	./tracer +RTS -N1
+    ./tracer +RTS -N1
 
 To use more than 1 core, use `+RTS -NX` where `X` is the desired number of cores to use.
 
