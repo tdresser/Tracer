@@ -29,5 +29,5 @@ test.tga is a sample image, 1024x768 with 2x oversampling.
 On my machine it rendered in about 8 seconds with two cores, and about 15 seconds with 1.
 
 * Tga.hs provides an interface for writing to .tga files
-* TracerTypes.hs defines all the datatypes
+* Tracertypes.hs defines all the datatypes
 * tracer.hs contains the raytracing code
